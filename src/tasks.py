@@ -1,4 +1,9 @@
 # src/tasks.py
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 import os
 import time
 import tempfile
@@ -17,14 +22,11 @@ def _pg_conn():
     return psycopg2.connect(DATABASE_URL)
 
 def download_from_storage(bucket, object_key, local_path):
-    # Use Supabase Storage REST endpoint if client download isn't available
-    url = f"{SUPABASE_URL}/storage/v1/object/{bucket}/{object_key}"
-    headers = {"Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"}
-    r = requests.get(url, headers=headers, stream=True)
-    r.raise_for_status()
-    with open(local_path, "wb") as f:
-        for chunk in r.iter_content(1024*64):
-            f.write(chunk)
+    # Use the supabase-py client library to download the file, which is more robust
+    # than manually constructing a URL.
+    with open(local_path, "wb+") as f:
+        res = supabase.storage.from_(bucket).download(object_key)
+        f.write(res)
 
 def process_report(report_id, storage_key=None):
     # storage_key expected as 'reports/<object>'
@@ -33,6 +35,9 @@ def process_report(report_id, storage_key=None):
     conn = _pg_conn()
     cur = conn.cursor()
     try:
+        # Add a small delay to mitigate potential storage replication lag
+        time.sleep(2)
+
         # mark processing
         cur.execute("update reports set status='processing' where id=%s", (report_id,))
         conn.commit()
