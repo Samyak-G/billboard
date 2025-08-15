@@ -7,8 +7,9 @@ python-multipart==0.0.6
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
 
-# Supabase
-supabase==2.3.4
+# Supabase - using latest compatible versions
+supabase>=2.4.0
+websockets>=12.0
 
 # Environment and Config
 python-dotenv==1.0.0
@@ -18,10 +19,11 @@ pydantic==2.5.0
 
 # HTTP requests
 requests==2.31.0
-httpx==0.25.2
+httpx[http2]>=0.26,<0.29
 
 # Background tasks
 rq[redis]==1.15.1
+redis==5.0.1
 redis==5.0.1
 
 # Development and testing

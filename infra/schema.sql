@@ -22,6 +22,7 @@ create table if not exists reports (
   timestamp timestamptz default now(),
   status text default 'pending', -- pending, processing, processed, needs_review, auto_flagged
   verdict jsonb, -- final verdict + reason codes
+  notes text, -- additional notes from reporter
   created_at timestamptz default now()
 );
 
