@@ -24,7 +24,13 @@ httpx[http2]>=0.26,<0.29
 # Background tasks
 rq[redis]==1.15.1
 redis==5.0.1
-redis==5.0.1
+
+# ML/CV
+ultralytics==8.0.196
+opencv-python-headless==4.8.1.78
+torch==2.3.0
+torchaudio==2.3.0
+torchvision==0.18.0
 
 # Development and testing
 pytest==7.4.3
