@@ -1,0 +1,77 @@
+
+{
+  "type": "FeatureCollection",
+  "name": "jabalpur_pilot_zones",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Commercial Hub A",
+        "rules": {
+          "max_width_m": 15.0,
+          "max_height_m": 10.0,
+          "allows_billboards": true,
+          "content_restrictions": ["no_political", "no_alcohol"]
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [79.94, 23.17],
+            [79.96, 23.17],
+            [79.96, 23.18],
+            [79.94, 23.18],
+            [79.94, 23.17]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Residential Zone B",
+        "rules": {
+          "max_width_m": 4.0,
+          "max_height_m": 3.0,
+          "allows_billboards": true,
+          "content_restrictions": ["general_commercial_only"]
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [79.91, 23.15],
+            [79.93, 23.15],
+            [79.93, 23.16],
+            [79.91, 23.16],
+            [79.91, 23.15]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "No-Billboard Zone C (Junction)",
+        "rules": {
+          "allows_billboards": false,
+          "reason": "Junction proximity"
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [79.945, 23.165],
+            [79.955, 23.165],
+            [79.955, 23.175],
+            [79.945, 23.175],
+            [79.945, 23.165]
+          ]
+        ]
+      }
+    }
+  ]
+}
