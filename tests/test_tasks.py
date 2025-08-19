@@ -78,27 +78,30 @@ def test_run_detection_returns_valid_format():
     # Run the detection function
     detection_result = run_detection(TEST_IMAGE_PATH)
 
-    # The result can be None if no object is detected with sufficient confidence
-    if detection_result is not None:
-        # If a detection is found, validate its structure
-        assert isinstance(detection_result, dict)
+    # The result should be a list (even if empty)
+    assert isinstance(detection_result, list)
+    
+    # If detections are found, validate their structure
+    if detection_result:
+        # Check the first detection for expected format
+        first_detection = detection_result[0]
+        assert isinstance(first_detection, dict)
         
         # Check for required keys that run_detection is responsible for.
         # The 'size_m' key is added later in the pipeline.
         expected_keys = ["bbox", "class", "conf"]
-        assert all(key in detection_result for key in expected_keys)
+        assert all(key in first_detection for key in expected_keys)
 
-        # Check bounding box format
-        bbox = detection_result['bbox']
-        assert isinstance(bbox, list)
-        assert len(bbox) == 4
-        assert all(isinstance(coord, int) for coord in bbox)
-
-        # Check other field types
-        assert isinstance(detection_result['class'], str)
-        assert isinstance(detection_result['conf'], float)
-
+        # Validate data types
+        assert isinstance(first_detection["bbox"], list)
+        assert len(first_detection["bbox"]) == 4  # [x1, y1, x2, y2]
+        assert isinstance(first_detection["class"], str)
+        assert isinstance(first_detection["conf"], (int, float))
+        assert 0.0 <= first_detection["conf"] <= 1.0
+        
+        print(f"✅ Found {len(detection_result)} detection(s)")
+        print(f"   Sample detection: {first_detection}")
     else:
-        # If no detection, the test passes as this is a valid outcome
-        print("\nNote: No objects detected in the test image, which is a valid result.")
-        pass
+        print("✅ No detections found (this is also valid)")
+        
+    print("✅ Detection format validation passed!")
