@@ -12,8 +12,14 @@ import psycopg2
 import json
 from ultralytics import YOLO
 import torch
+import cv2
+import numpy as np
 from PIL import Image
 from PIL.ExifTags import TAGS
+
+# Import Day 6 modules
+from .ocr_moderation import process_detection_ocr_and_moderation
+from .pii_detection import process_pii_redaction
 
 # --- Constants ---
 CAR_AVG_WIDTH_M = 1.8 
@@ -204,11 +210,46 @@ def process_report(report_id, storage_key=None):
                 # --- Compliance Checks (Day 5) ---
                 verdict = run_compliance_checks(cur, report_id, primary_detection["size_m"])
                 
-                # Save all findings
+                # Save detection first to get detection_id
                 cur.execute(
-                    "INSERT INTO detections(report_id, bbox, class, conf, size_m) VALUES(%s, %s, %s, %s, %s)",
+                    "INSERT INTO detections(report_id, bbox, class, conf, size_m) VALUES(%s, %s, %s, %s, %s) RETURNING id",
                     (report_id, json.dumps(primary_detection["bbox"]), primary_detection["class"], primary_detection["conf"], json.dumps(primary_detection["size_m"]))
                 )
+                detection_id = cur.fetchone()[0]
+                primary_detection["id"] = detection_id
+                
+                # --- Day 6: OCR and Content Moderation ---
+                try:
+                    # Load image for OCR and PII processing
+                    image = cv2.imread(tmp.name)
+                    
+                    # Process OCR and moderation for the primary detection
+                    import asyncio
+                    ocr_result = asyncio.run(process_detection_ocr_and_moderation(image, primary_detection))
+                    audit_payload["ocr_result"] = ocr_result
+                    
+                    # Process PII detection and redaction for the entire image
+                    pii_result = asyncio.run(process_pii_redaction(image, report_id))
+                    audit_payload["pii_result"] = pii_result
+                    
+                    # Update verdict with content flags if any
+                    if ocr_result.get("flags"):
+                        content_violations = [f"content_{flag['flag_type']}" for flag in ocr_result["flags"]]
+                        verdict["reasons"].extend(content_violations)
+                        verdict["violation"] = True
+                        verdict["content_flags"] = len(ocr_result["flags"])
+                    
+                    # Update verdict with PII flags if redaction was needed
+                    if pii_result.get("pii_count", 0) > 0:
+                        verdict["pii_detected"] = pii_result["pii_count"]
+                        verdict["pii_types"] = pii_result.get("pii_types", [])
+                        if pii_result.get("redacted_url"):
+                            verdict["redacted_image"] = pii_result["redacted_url"]
+                
+                except Exception as e:
+                    print(f"OCR/PII processing failed: {e}")
+                    audit_payload["ocr_pii_error"] = str(e)
+                
                 cur.execute("UPDATE reports SET verdict=%s, status='processed' WHERE id=%s", (json.dumps(verdict), report_id))
                 audit_payload["primary_detection"] = primary_detection
                 audit_payload["final_verdict"] = verdict
