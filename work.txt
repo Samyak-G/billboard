@@ -1,0 +1,318 @@
+We are creating a solution for hackathon . The details are as follows -
+Problem statement — what it really asks for
+
+Core mission. Build a mobile + reporting system that can detect, verify, and flag unauthorized billboards from photos/live video, with geotagging, real-time alerts, and checks against regulations/permit data. It must be scalable, citizen-friendly, and fit urban-governance workflows.
+
+Detection scope (what “unauthorized” means here).
+Must identify violations by: (a) size/dimensions, (b) geolocation/poor placement (e.g., near junctions/low-visibility), (c) structural hazard/aging installs, (d) image/video content (obscenity, misinformation, etc.), and (e) cross-checking with zoning and permitted billboard databases.
+
+Functional pillars.
+
+Smart detection (AI/CV on images & live video) with in-app capture.
+
+Citizen engagement (optional crowdsourced reporting with GPS + timestamp).
+
+Regulatory compliance checks (against policies/permits/zones).
+
+Real-time reporting (instant flagging + reasons surfaced to user/authority).
+
+Constraints & ethics.
+
+No cloning public GitHub repos / direct codebase copies.
+
+Strong privacy & data-security posture, especially around public imagery/faces; include a visible privacy disclaimer in the UI for citizen uploads.
+
+Research groundwork expected.
+
+Review municipal & national policy (e.g., Model Outdoor Advertising Policy 2016).
+
+Define concrete violation criteria (size limits, proximity to junctions, license/QR absence, etc.).
+
+How you’ll be judged (weights).
+
+Innovation & originality (40%) – novel tech/UX/enforcement logic.
+
+Technical feasibility (30%) – realistic architecture/stack for scale.
+
+User-friendliness (20%) – clarity, walkthroughs, intuitive flows.
+
+Data ethics & privacy (10%) – responsible handling of public imagery.
+
+Deliverables.
+
+Working prototype (mobile app + reporting portal).
+
+Architecture diagram (data flow, modules, 3rd-party APIs).
+
+Pitch deck (≤10 slides).
+
+Documentation (tech choices, assumptions, compliance checks).
+
+Optional: public heatmap dashboard & gamification/incentives.
+
+Design implications & risks (my read).
+
+You’ll need reliable geospatial reasoning (proximity to junctions/zones) + permit/registry integration.
+
+Model scope is broad (detection, content moderation, structure/hazard cues, rough size estimation); MVP must trim scope smartly while staying faithful to the brief.
+
+Ethics/consent/PII: face/license-plate handling, retention policy, audit trails, and a clear in-app privacy notice are non-negotiable.
+
+Short summary of what we must deliver (backend scope)
+
+Billboard detection → object detection bounding boxes (hoarding locations in image).
+
+Size estimation → rough physical dimensions (width/height) from a single image (monocular estimation, approximate).
+
+Content & zoning validation → OCR + text moderation + geospatial check against a municipal zoning/permit dataset we create for Jabalpur.
+
+Testing & metrics → evaluation on an assembled Jabalpur test-set (precision, recall, mAP, IoU, size error).
+
+Recommended backend tech stack (Balanced — fast to build, production-feasible)
+
+Goal: fast to deliver in Week 1, but with minimal rework required for Phase 2.
+
+Language / Framework (API): Python + FastAPI — fast to implement, async, great docs, easy integration with ML code.
+
+Key libs: pydantic, uvicorn, httpx.
+
+Object detection & CV stack: Ultralytics YOLOv8 (PyTorch) for detection (use yolov8n for speed), OpenCV for image ops, Tesseract (or Google Vision API if budget allows) for OCR, MiDaS or simple focal-length + pixel-geometry for size estimation (see method below).
+
+Key libs: ultralytics, opencv-python, pytesseract, torch, timm (if using MiDaS).
+
+DB + Geospatial: PostgreSQL + PostGIS (hosted cheaply via Supabase or Railway) — store reports, GeoJSON zones, permit records, spatial queries.
+
+Object storage: Supabase Storage or S3 (minio/supabase) for images/videos (Supabase = easiest + cheap for hackathon).
+
+Queue / Background jobs: RQ or FastAPI background tasks for small scale; RQ/Redis if you need retries.
+
+Realtime / Notifications: Supabase Realtime or WebSockets via FastAPI; webhooks for portal updates.
+
+Auth: JWT via Supabase Auth or FastAPI simple JWT — Supabase simplifies integration with the planned frontend.
+
+Deployment (prototype): Supabase (DB+Storage+Auth) + a small cloud VM (Railway / Render / Fly / cheap EC2/GCP micro) to run FastAPI + model inference. Use Vercel for the portal frontend later.
+
+CI/CD: GitHub Actions (run tests, deploy).
+
+Monitoring / logs: Basic Grafana/Prometheus optional; for hackathon simple log files + Sentry free tier.
+Justification: This stack is developer-friendly, integrates easily with React Native/Next.js (your planned frontends), and can be kept very low-cost by using Supabase + a small server for inference.
+
+Speed-first alternative stack (if you must shave hours)
+
+Goal: Get a working demo within days with minimal infra setup — more technical debt.
+
+API: Node.js + Express (or serverless functions on Vercel) — faster for JS teams.
+
+CV: Use Cloud Vision APIs (Google Vision / AWS Rekognition) for detection & OCR calls — no model hosting. Good for speed, costs per call and limited control.
+
+DB & Storage: Supabase (still recommended) or Firebase (quicker but weak spatial queries).
+
+Pros: fastest to glue things together; no ML ops.
+
+Cons / debt: cost per API call; limited control on detection model; exporting to custom models later will require rework in the pipeline and data flows.
+
+Feasibility & integrability with your frontend (React Native / Next.js)
+
+Upload flow: Mobile app uploads photo to Supabase Storage (signed URL) → mobile sends report JSON (coords, timestamp, file key) to FastAPI endpoint. Easy to call from React Native (fetch/axios). Supabase SDK available on JS.
+
+Realtime status: Supabase Realtime + changefeed on reports table updates the portal and mobile status. Works seamlessly with Next.js and React Native.
+
+Auth: use Supabase Auth on both mobile and portal — one integration for both.
+
+Portal maps: Next.js page calls backend for geospatial queries; serve GeoJSON for heatmaps (Leaflet/Mapbox).
+
+Why this is low friction: Supabase reduces boilerplate (Postgres + storage + auth + realtime), minimizing backend surface area for the hackathon.
+
+How we will do size estimation (practical, hackathon-ready)
+
+Monocular size estimation is hard; use a hybrid approximate approach:
+
+Best-effort EXIF method (fast, low-cost):
+
+Read EXIF focal_length and sensor_size (if available). From bounding box pixel height h_px, image height H_px, focal length f_mm, sensor height s_mm, and distance d_m (unknown) — you can only estimate physical size if distance or camera height is known.
+
+For hackathon: assume average eye-level camera height (1.5m) and compute approximate distance using billboard bottom point and street plane assumptions. This yields rough size with high variance — which is acceptable if judges expect reasonable estimates with disclaimers.
+
+Better (if time permits): monocular depth model (MiDaS)
+
+Run a depth model to get relative depth map, estimate distance to billboard plane, and translate pixel bbox to metres. More accurate but heavier.
+
+Practical hackathon algorithm (recommended):
+
+Detect billboard bbox. Also detect one or two reference objects if present (cars/signposts) with known approximate sizes; use ratio to compute scale. Fallback to assumption-based EXIF method.
+
+Return size with confidence and an indicator (“approximate”). Document methodology in the pitch.
+
+I’ll supply code snippets for the chosen approach if you want. (This keeps compute light and defensible for judges.)
+
+Jabalpur municipal zoning / permit dataset (how to create quickly)
+
+Deliver a small test dataset for validation:
+
+Create GeoJSON polygon layers for Jabalpur city zones:
+
+Use municipal maps / open data (if available) or draw rough zones manually in QGIS / geojson.io. For hackathon, 6–10 approximate polygons (commercial, residential, junction buffers) are enough.
+
+Rules table (Postgres): zone_id, max_ad_area_m2, allowed_setbacks, proximity_restrictions (e.g., within 30m of signal).
+
+Permit DB (pilot): sample permits: permit_id, owner, zone_id, lat/lon, valid_from, valid_to, allowed_dimensions (JSON).
+
+Testing corpus: annotate ~100–300 images for Jabalpur (mix of compliant & non-compliant). Use Roboflow or simple CSV for bounding boxes and labels.
+
+Storage formats: GeoJSON for polygons, CSV/SQL for permits, images in Supabase Storage. This is quick and judge-friendly.
+
+Testing & evaluation plan (what we measure)
+
+Object detection: mAP@0.5, IoU distribution, precision/recall.
+
+Size estimation: Mean Absolute Error (MAE) in meters and % error. Report median and outlier rates.
+
+Zoning validation: True positive rate of violation detection vs ground-truth.
+
+Content moderation: precision/false positives for profanity/obscenity detection (use OCR + keyword list).
+
+End-to-end: fraction of reports correctly flagged as violation and correct reason(s).
+
+For hackathon, prepare a small ground truth set (50–150 images) and present quick confusion matrices and example successes/failures.
+
+Cost-efficient hosting choices (hackathon)
+
+Supabase (free tier) — Postgres+PostGIS + storage + auth + realtime: huge time saver.
+
+Small inference server: Railway free tier or a small $5–10/month VM on Vultr/Hetzner/OVH or a temporary Colab Pro GPU for heavier runs. For demo, a single t2.small or similar CPU server running yolov8n might be enough for low traffic.
+
+Portal hosting: Vercel (free hobby) for Next.js.
+
+Optional paid cloud vision (if no time to train): Google Vision / AWS Rekognition — pay per call but fast. Use only if free-tier suffices or judges accept paid-call proof-of-concept.
+
+Two-week day-by-day plan (concrete, deliverables-focused)
+
+Assumption: Team of 2–3 developers. Week 1 = Backend + tests (priority). Week 2 = UI/UX & polish.
+
+Week 1 — Backend & core algorithms (winning-oriented)
+
+Day 1 — Project kickoff & infra skeleton
+
+Tasks: repo init, GitHub actions scaffold, choose hosting (Supabase account + small VM account), create DB schema skeleton (reports, zones, permits, users).
+
+Deliverable: running Supabase project + empty PostGIS DB schema + repo with README.
+
+Why: infra ready for immediate dev and demo.
+
+Day 2 — Ingestion API & storage
+
+Tasks: implement FastAPI endpoint for mobile upload (auth stub), signed upload flow to Supabase Storage, save metadata (coords, timestamp, filename) to DB.
+
+Deliverable: upload flow end-to-end (mobile can POST metadata + file key). Smoke test with sample images.
+
+Note: Keep endpoints documented (OpenAPI auto generated).
+
+Day 3 — Object detection integration
+
+Tasks: integrate YOLOv8n model into backend; endpoint/process that takes stored image key and produces bbox + confidence. Add unit tests for detection flow.
+
+Deliverable: detection service returning bbox JSON for sample images. Save detection results to DB.
+
+Tip: cache model in memory; use small weights to keep latency low.
+
+Day 4 — Size estimation & heuristic rules
+
+Tasks: implement size estimation algorithm (EXIF-based fallback + reference-object heuristic). Add confidence score.
+
+Deliverable: size estimate attached to detection records; test reports showing estimated sizes for sample images.
+
+Also: write short doc describing assumptions (camera height, focal-length fallback).
+
+Day 5 — Geospatial zoning & permit cross-check
+
+Tasks: load Jabalpur zone polygons (GeoJSON) into PostGIS; implement spatial query to check which zone a report falls in and validate against zone rules/permit DB.
+
+Deliverable: endpoint that returns compliance verdict (allowed/not allowed + reason codes). Test with simulated points in different zones.
+
+Day 6 — Content validation pipeline
+
+Tasks: OCR integration (pytesseract or Vision API), simple NLP moderation (profanity list + regex + length checks), flag political/obscene content heuristics.
+
+Deliverable: text extracted + moderation flags saved per report. Show examples.
+
+Optional: integrate simple false-positive reduction (confidence thresholds).
+
+Day 7 — End-to-end testing & demo API
+
+Tasks: wire everything: image upload → detection → size estimation → zoning check → content validation → report stored and marked as violation/safe. Create simple API to fetch full report details.
+
+Deliverable: E2E demo script (curl/Postman) and 10 annotated example runs (success/failure) for judges. Prepare evaluation metrics on the Jabalpur test corpus.
+
+Week 2 — UI/UX, polish, and hackathon deliverables
+
+Day 8 — Simple portal baseline + minimal dashboard
+
+Tasks: Next.js minimal portal showing map + recent reports; fetch GeoJSON from backend and show markers. Authentication via Supabase.
+
+Deliverable: working portal with map + list view.
+
+Day 9 — Mobile proof-of-concept
+
+Tasks: React Native (Expo or bare) camera integration + upload flow to Supabase; show immediate response from detection endpoint.
+
+Deliverable: demo-able mobile app that uploads and receives violation response.
+
+Day 10 — Reviewer workflow & manual override
+
+Tasks: add reviewer endpoint in backend and portal action to mark report statuses (accept/reject).
+
+Deliverable: simple reviewer UI + audit trail log in DB.
+
+Day 11 — Performance tuning & stability
+
+Tasks: reduce inference latency (quantize model if needed), add basic retries/queue, test under small load, fix bugs.
+
+Deliverable: stable demo-ready backend and improved detection speed.
+
+Day 12 — Presentation assets & docs
+
+Tasks: prepare architecture diagram (use eraser.io as you planned — I can output copy for it), short pitch deck, and README with endpoints and demo steps.
+
+Deliverable: 8–10 slide deck + architecture diagram content.
+
+Day 13 — Final end-to-end testing & QA
+
+Tasks: run evaluation metrics on test set, prepare failure-cases list and suggestions, finalize privacy disclaimer text for app.
+
+Deliverable: evaluation report (mAP, IoU, size errors) + privacy disclaimer.
+
+Day 14 — Rehearsal & deploy
+
+Tasks: deploy portal to Vercel, backend to Railway/VM, test mobile demo flow, rehearse demo script and fallback plan.
+
+Deliverable: live demo link + rehearsal checklist.
+
+Testing dataset & quick tips for Jabalpur
+
+Collect images: street-level images around Jabalpur (phone camera or Google Street View screenshots where allowed). Aim for ~200 images for the hackathon test set (mix zones, daylight conditions).
+
+Labeling: use LabelImg/Roboflow for bbox + class (billboard) + attribute (obscene text/not). Export COCO/YOLO formats.
+
+Annotate permits: create small CSV of 30 sample permits (some valid, some expired) with geocoordinates to test cross-check logic.
+
+Simulators: add synthetic scale changes by cropping/resize to mimic different camera distances.
+
+Quick risk & mitigation (for judges)
+
+Risk: size estimation noisy. → Mitigate by being transparent with confidence and showing many successful examples.
+
+Risk: OCR false positives for unusual fonts. → Use combined OCR + manual reviewer in pipeline.
+
+Risk: lack of municipal data accuracy. → Present well-documented pilot dataset for Jabalpur and describe how real data would be ingested later.
+
+Final checklist & immediate next actions I can produce right now
+
+I can generate the FastAPI skeleton (endpoints + Postgres models + Supabase integration).
+
+I can provide a YOLOv8 integration script and a basic size-estimation function (EXIF fallback + reference-object approach).
+
+I can draft the GeoJSON zone template and sample permit CSV for Jabalpur.
+
+I can author the privacy disclaimer text for the mobile app.
+
+Analyze it and we have completed day 5. After analyazing do not code anything until said and tell me if you have understand or not
